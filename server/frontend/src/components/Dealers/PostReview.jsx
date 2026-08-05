@@ -1,123 +1,352 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import "./Dealers.css";
 import "../assets/style.css";
-import Header from '../Header/Header';
-
+import Header from "../Header/Header";
 
 const PostReview = () => {
-  const [dealer, setDealer] = useState({});
+  const [dealer, setDealer] = useState(null);
   const [review, setReview] = useState("");
-  const [model, setModel] = useState();
+  const [selectedCar, setSelectedCar] = useState("");
   const [year, setYear] = useState("");
   const [date, setDate] = useState("");
-  const [carmodels, setCarmodels] = useState([]);
+  const [carModels, setCarModels] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  let curr_url = window.location.href;
-  let root_url = curr_url.substring(0,curr_url.indexOf("postreview"));
-  let params = useParams();
-  let id =params.id;
-  let dealer_url = root_url+`djangoapp/dealer/${id}`;
-  let review_url = root_url+`djangoapp/add_review`;
-  let carmodels_url = root_url+`djangoapp/get_cars`;
+  const { id } = useParams();
 
-  const postreview = async ()=>{
-    let name = sessionStorage.getItem("firstname")+" "+sessionStorage.getItem("lastname");
-    //If the first and second name are stores as null, use the username
-    if(name.includes("null")) {
+  const dealerUrl = `/djangoapp/dealer/${id}`;
+  const reviewUrl = "/djangoapp/add_review";
+  const carModelsUrl = "/djangoapp/get_cars";
+
+  const getDealer = async () => {
+    try {
+      const response = await fetch(dealerUrl, {
+        method: "GET",
+      });
+
+      const result = await response.json();
+
+      if (result.status === 200 && result.dealer) {
+        setDealer(result.dealer);
+      }
+    } catch (error) {
+      console.error("Error loading dealer:", error);
+    }
+  };
+
+  const getCars = async () => {
+    try {
+      const response = await fetch(carModelsUrl, {
+        method: "GET",
+      });
+
+      const result = await response.json();
+
+      if (Array.isArray(result.CarModels)) {
+        setCarModels(result.CarModels);
+      }
+    } catch (error) {
+      console.error("Error loading car models:", error);
+    }
+  };
+
+  const postReview = async () => {
+    let name =
+      sessionStorage.getItem("firstname") +
+      " " +
+      sessionStorage.getItem("lastname");
+
+    if (name.includes("null")) {
       name = sessionStorage.getItem("username");
     }
-    if(!model || review === "" || date === "" || year === "" || model === "") {
-      alert("All details are mandatory")
+
+    if (
+      !selectedCar ||
+      review.trim() === "" ||
+      date === "" ||
+      year === ""
+    ) {
+      alert("All details are mandatory.");
       return;
     }
 
-    let model_split = model.split(" ");
-    let make_chosen = model_split[0];
-    let model_chosen = model_split[1];
+    const selectedCarData = JSON.parse(selectedCar);
 
-    let jsoninput = JSON.stringify({
-      "name": name,
-      "dealership": id,
-      "review": review,
-      "purchase": true,
-      "purchase_date": date,
-      "car_make": make_chosen,
-      "car_model": model_chosen,
-      "car_year": year,
-    });
+    const reviewData = {
+      name: name,
+      dealership: Number(id),
+      review: review,
+      purchase: true,
+      purchase_date: date,
+      car_make: selectedCarData.make,
+      car_model: selectedCarData.model,
+      car_year: Number(year),
+    };
 
-    console.log(jsoninput);
-    const res = await fetch(review_url, {
-      method: "POST",
-      headers: {
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch(reviewUrl, {
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
-      },
-      body: jsoninput,
-  });
+        },
+        body: JSON.stringify(reviewData),
+      });
 
-  const json = await res.json();
-  if (json.status === 200) {
-      window.location.href = window.location.origin+"/dealer/"+id;
-  }
+      const result = await response.json();
 
-  }
-  const get_dealer = async ()=>{
-    const res = await fetch(dealer_url, {
-      method: "GET"
-    });
-    const retobj = await res.json();
-    
-    if(retobj.status === 200) {
-      let dealerobjs = Array.from(retobj.dealer)
-      if(dealerobjs.length > 0)
-        setDealer(dealerobjs[0])
+      if (result.status === 200) {
+        alert("Your review has been posted successfully.");
+        window.location.href = `/dealer/${id}`;
+      } else {
+        alert(result.message || "The review could not be posted.");
+      }
+    } catch (error) {
+      console.error("Error posting review:", error);
+      alert("An error occurred while posting the review.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const get_cars = async ()=>{
-    const res = await fetch(carmodels_url, {
-      method: "GET"
-    });
-    const retobj = await res.json();
-    
-    let carmodelsarr = Array.from(retobj.CarModels)
-    setCarmodels(carmodelsarr)
-  }
   useEffect(() => {
-    get_dealer();
-    get_cars();
-  },[]);
+    getDealer();
+    getCars();
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   return (
-    <div>
-      <Header/>
-      <div  style={{margin:"5%"}}>
-      <h1 style={{color:"darkblue"}}>{dealer.full_name}</h1>
-      <textarea id='review' cols='50' rows='7' onChange={(e) => setReview(e.target.value)}></textarea>
-      <div className='input_field'>
-      Purchase Date <input type="date" onChange={(e) => setDate(e.target.value)}/>
-      </div>
-      <div className='input_field'>
-      Car Make 
-      <select name="cars" id="cars" onChange={(e) => setModel(e.target.value)}>
-      <option value="" selected disabled hidden>Choose Car Make and Model</option>
-      {carmodels.map(carmodel => (
-          <option value={carmodel.CarMake+" "+carmodel.CarModel}>{carmodel.CarMake} {carmodel.CarModel}</option>
-      ))}
-      </select>        
-      </div >
+    <div style={{ minHeight: "100vh", backgroundColor: "#f4f7f9" }}>
+      <Header />
 
-      <div className='input_field'>
-      Car Year <input type="int" onChange={(e) => setYear(e.target.value)} max={2023} min={2015}/>
-      </div>
+      <div
+        style={{
+          width: "90%",
+          maxWidth: "750px",
+          margin: "50px auto",
+          padding: "35px",
+          backgroundColor: "white",
+          borderRadius: "14px",
+          boxShadow: "0 5px 20px rgba(0, 0, 0, 0.12)",
+        }}
+      >
+        <div
+          style={{
+            marginBottom: "30px",
+            textAlign: "center",
+          }}
+        >
+          <h1
+            style={{
+              margin: "0 0 10px 0",
+              color: "#007b83",
+              fontSize: "32px",
+              fontWeight: "700",
+            }}
+          >
+            Post a Review
+          </h1>
 
-      <div>
-      <button className='postreview' onClick={postreview}>Post Review</button>
+          {dealer ? (
+            <>
+              <h2
+                style={{
+                  margin: "0 0 8px 0",
+                  color: "#333",
+                  fontSize: "24px",
+                }}
+              >
+                {dealer.full_name}
+              </h2>
+
+              <p
+                style={{
+                  margin: "0",
+                  color: "#666",
+                  lineHeight: "1.5",
+                }}
+              >
+                {dealer.address}, {dealer.city}, {dealer.state} {dealer.zip}
+              </p>
+            </>
+          ) : (
+            <p style={{ color: "#777" }}>Loading dealer details...</p>
+          )}
+        </div>
+
+        <div style={{ marginBottom: "22px" }}>
+          <label
+            htmlFor="review"
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "#333",
+              fontWeight: "600",
+            }}
+          >
+            Your review
+          </label>
+
+          <textarea
+            id="review"
+            rows="7"
+            value={review}
+            placeholder="Describe your experience with this dealership..."
+            onChange={(event) => setReview(event.target.value)}
+            style={{
+              width: "100%",
+              padding: "14px",
+              border: "1px solid #c7c7c7",
+              borderRadius: "8px",
+              resize: "vertical",
+              fontSize: "16px",
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "20px",
+            marginBottom: "22px",
+          }}
+        >
+          <div style={{ flex: "1 1 250px" }}>
+            <label
+              htmlFor="purchase-date"
+              style={{
+                display: "block",
+                marginBottom: "8px",
+                color: "#333",
+                fontWeight: "600",
+              }}
+            >
+              Purchase date
+            </label>
+
+            <input
+              id="purchase-date"
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #c7c7c7",
+                borderRadius: "8px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div style={{ flex: "1 1 250px" }}>
+            <label
+              htmlFor="car-year"
+              style={{
+                display: "block",
+                marginBottom: "8px",
+                color: "#333",
+                fontWeight: "600",
+              }}
+            >
+              Car year
+            </label>
+
+            <input
+              id="car-year"
+              type="number"
+              min="2015"
+              max="2023"
+              value={year}
+              placeholder="For example: 2023"
+              onChange={(event) => setYear(event.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #c7c7c7",
+                borderRadius: "8px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "30px" }}>
+          <label
+            htmlFor="cars"
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "#333",
+              fontWeight: "600",
+            }}
+          >
+            Car make and model
+          </label>
+
+          <select
+            id="cars"
+            name="cars"
+            value={selectedCar}
+            onChange={(event) => setSelectedCar(event.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px",
+              border: "1px solid #c7c7c7",
+              borderRadius: "8px",
+              backgroundColor: "white",
+              fontSize: "16px",
+              boxSizing: "border-box",
+            }}
+          >
+            <option value="" disabled>
+              Choose car make and model
+            </option>
+
+            {carModels.map((carModel, index) => (
+              <option
+                key={`${carModel.CarMake}-${carModel.CarModel}-${index}`}
+                value={JSON.stringify({
+                  make: carModel.CarMake,
+                  model: carModel.CarModel,
+                })}
+              >
+                {carModel.CarMake} {carModel.CarModel}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={postReview}
+          disabled={isSubmitting}
+          style={{
+            width: "100%",
+            padding: "14px 20px",
+            border: "none",
+            borderRadius: "8px",
+            backgroundColor: isSubmitting ? "#8babad" : "darkturquoise",
+            color: "#ffffff",
+            fontSize: "17px",
+            fontWeight: "700",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+          }}
+        >
+          {isSubmitting ? "Posting review..." : "Post Review"}
+        </button>
       </div>
     </div>
-    </div>
-  )
-}
-export default PostReview
+  );
+};
+
+export default PostReview;
