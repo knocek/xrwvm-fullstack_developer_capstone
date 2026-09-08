@@ -10,8 +10,8 @@ app_name = 'djangoapp'
 urlpatterns = [
     # path for registration
     path(
-        route="register", 
-        view=views.registration, 
+        route="register",
+        view=views.registration,
         name="register"
     ),
 
@@ -30,18 +30,18 @@ urlpatterns = [
     path(
         route='get_cars',
         view=views.get_cars,
-        name ='getcars'
+        name='getcars'
     ),
 
     # path for dealer reviews view
     path(
-        route='get_dealers/', 
-        view=views.get_dealerships, 
+        route='get_dealers/',
+        view=views.get_dealerships,
         name='get_dealers'
     ),
     path(
-        route='get_dealers/<str:state>', 
-        view=views.get_dealerships, 
+        route='get_dealers/<str:state>',
+        view=views.get_dealerships,
         name='get_dealers_by_state'
     ),
     path(
